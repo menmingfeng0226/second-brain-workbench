@@ -1,3 +1,5 @@
+import { tryHandleDemoRequest } from './demo-mode';
+
 export interface HttpRequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   headers?: Record<string, string>;
@@ -155,6 +157,9 @@ class HttpClient {
       cfg.body === undefined || cfg.body instanceof FormData || typeof cfg.body === 'string'
         ? (cfg.body as BodyInit | null | undefined)
         : (JSON.stringify(cfg.body) as BodyInit);
+
+    const demo = tryHandleDemoRequest(cfg.method ?? 'GET', finalUrl, cfg.body, cfg.headers as Record<string, string>);
+    if (demo) return demo as ApiResponse<T>;
 
     const init: RequestInit = {
       method: cfg.method,

@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/store';
+import { isDemoModeEnabled, toggleDemoMode } from '@/lib/demo-mode';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,6 +15,11 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoMode, setDemoModeState] = useState<boolean>(false);
+
+  useEffect(() => {
+    setDemoModeState(isDemoModeEnabled());
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -251,7 +257,35 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-center mt-6 text-xs" style={{ color: '#94a3b8' }}>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => {
+              const next = toggleDemoMode();
+              setDemoModeState(next);
+              if (next) {
+                setUsername('晨枫暮叶');
+                setPassword('123456');
+              }
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-semibold transition-all"
+            style={{
+              background: demoMode
+                ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)'
+                : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              color: demoMode ? '#ffffff' : '#0369a1',
+              boxShadow: demoMode
+                ? '0 10px 24px -10px rgba(245, 158, 11, 0.65), 0 2px 6px rgba(245, 158, 11, 0.22)'
+                : '0 4px 14px -4px rgba(56, 189, 248, 0.25)',
+              border: demoMode ? '1px solid rgba(251, 191, 36, 0.45)' : '1px solid #bae6fd',
+            }}
+          >
+            <Sparkles className="w-4 h-4" />
+            {demoMode ? '演示模式：已启用（纯前端 Mock 数据，无需后端）' : '一键启用演示模式（推荐，无需后端即可体验完整功能）'}
+          </button>
+        </div>
+
+        <p className="text-center mt-5 text-xs" style={{ color: '#94a3b8' }}>
           演示账号：
           <code
             className="ml-1.5 px-2.5 py-1 rounded-lg font-mono text-[11px]"

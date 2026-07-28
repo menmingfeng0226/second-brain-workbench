@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Sparkles } from 'lucide-react';
 import { eventBus } from '@/lib/eventBus';
+import { isDemoModeEnabled, setDemoMode } from '@/lib/demo-mode';
 
 interface Props {
   children: ReactNode;
@@ -42,6 +43,11 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   handleHome = () => {
     window.location.href = '/';
+  };
+
+  handleEnableDemo = () => {
+    setDemoMode(true);
+    window.location.href = '/login';
   };
 
   handleCopyDetails = async () => {
@@ -114,6 +120,15 @@ export default class ErrorBoundary extends Component<Props, State> {
           )}
 
           <div className="flex items-center justify-center flex-wrap gap-3">
+            {!isDemoModeEnabled() && (
+              <button
+                onClick={this.handleEnableDemo}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-medium hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                启用演示模式
+              </button>
+            )}
             <button
               onClick={this.handleReset}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors"

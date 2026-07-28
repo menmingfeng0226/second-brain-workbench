@@ -53,3 +53,4 @@ zz-*.mjs
 zz-*.ts
 zz-*.js
 .tmp/
+.vercel
