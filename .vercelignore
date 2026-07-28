@@ -1,0 +1,6 @@
+# 阻止 Vercel 自动把 api/ 子目录下的其他 ts 文件打包为独立 Functions
+# 我们只保留 api/[[...route]].ts 作为唯一入口，路由统一 Hono 内部处理
+api/_shared/**
+api/routes/**
+api/platforms/**
+api/_hono-standalone.ts

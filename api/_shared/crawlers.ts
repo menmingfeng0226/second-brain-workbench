@@ -517,12 +517,12 @@ async function crawlWechatOfficial(ctx: CrawlContext): Promise<CrawlResult> {
     }
     if (route === '/mp/overview') return { ok: true, source: 'mock', data: mockChannels.find(c => c.id === 'wechat-official') ?? mockChannels[0] };
     if (route === '/mp/articles') {
+      const base = articleLabs.filter(a => a.channel === 'wechat-official');
       if (accessToken) {
         const body = JSON.stringify({ action: 'list_all', count: 20, offset: 0 });
         const r = await safeFetch(`https://api.weixin.qq.com/cgi-bin/freepublish/batchget?access_token=${encodeURIComponent(accessToken)}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body });
         const list = (r.data as WechatMpArticlesResp).item ?? [];
         const arr = list.flatMap(x => x.content?.news_item ?? []).slice(0, 20);
-        const base = articleLabs.filter(a => a.channel === 'wechat-official');
         if (arr.length) {
           const mapped = arr.map((a, i) => ({
             id: `mp_${i}`,
