@@ -1,10 +1,91 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>第二大脑 · 自媒体本地工作台 | 晨枫暮叶</title>
+    <script>
+      (function () {
+        try {
+          var _wr = function (type) {
+            try {
+              if (typeof window === 'undefined' || typeof Node === 'undefined' || !Node.prototype) return;
+              var orig = Node.prototype[type];
+              if (!orig || orig.__wbPatched) return;
+              Node.prototype[type] = function (a, b) {
+                try {
+                  return orig.call(this, a, b);
+                } catch (err) {
+                  var e = err || {};
+                  var name = (e && e.name) || '';
+                  var msg = (e && e.message) || '';
+                  var isDom =
+                    name === 'NotFoundError' ||
+                    name === 'HierarchyRequestError' ||
+                    /removeChild|insertBefore|replaceChild|appendChild/i.test(msg);
+                  if (isDom) {
+                    try {
+                      if (typeof console !== 'undefined') {
+                        console.warn('[polyfill] 忽略 DOM ' + type + ' 异常:', msg);
+                      }
+                    } catch (_) {}
+                    if (type === 'removeChild') return a;
+                    if (type === 'insertBefore') {
+                      try {
+                        this.appendChild(a);
+                      } catch (_) {}
+                      return a;
+                    }
+                    if (type === 'replaceChild') return a;
+                    return a;
+                  }
+                  throw err;
+                }
+              };
+              Node.prototype[type].__wbPatched = true;
+            } catch (_) {}
+          };
+          _wr('removeChild');
+          _wr('insertBefore');
+          _wr('replaceChild');
+          _wr('appendChild');
+
+          try {
+            if (typeof window !== 'undefined' && typeof Element !== 'undefined' && Element.prototype && Element.prototype.remove && !Element.prototype.remove.__wbPatched) {
+              var origRemove = Element.prototype.remove;
+              Element.prototype.remove = function () {
+                try {
+                  return origRemove.call(this);
+                } catch (err) {
+                  try {
+                    if (typeof console !== 'undefined') {
+                      console.warn('[polyfill] 忽略 Element.remove 异常:', (err && err.message) || '');
+                    }
+                  } catch (_) {}
+                  return undefined;
+                }
+              };
+              Element.prototype.remove.__wbPatched = true;
+            }
+          } catch (_) {}
+
+          try {
+            if (typeof window !== 'undefined' && typeof CharacterData !== 'undefined' && CharacterData.prototype && CharacterData.prototype.remove && !CharacterData.prototype.remove.__wbPatched) {
+              var origCDataRemove = CharacterData.prototype.remove;
+              CharacterData.prototype.remove = function () {
+                try {
+                  return origCDataRemove.call(this);
+                } catch (err) {
+                  return undefined;
+                }
+              };
+              CharacterData.prototype.remove.__wbPatched = true;
+            }
+          } catch (_) {}
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
