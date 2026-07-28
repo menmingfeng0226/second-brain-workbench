@@ -17,6 +17,29 @@ interface UserRow {
 const USERS = new Map<string, UserRow>();
 const REFRESH_TOKENS = new Map<string, string>();
 
+const DEMO_ACCOUNTS: Array<{ username: string; password: string; nickname: string; role: UserRow['role'] }> = [
+  { username: '晨枫暮叶', password: '123456', nickname: '晨枫暮叶', role: 'owner' },
+  { username: 'admin', password: '123456', nickname: '管理员', role: 'owner' },
+  { username: '晨枫', password: '123456', nickname: '晨枫', role: 'owner' },
+];
+
+function ensureDemoUsersSeeded() {
+  for (const a of DEMO_ACCOUNTS) {
+    const key = a.username.toLowerCase();
+    if (USERS.has(key)) continue;
+    const id = 'u_demo_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
+    USERS.set(key, {
+      id,
+      username: a.username,
+      passwordHash: 'DEMO::' + a.password,
+      nickname: a.nickname,
+      avatarColor: defaultAvatarColor(a.username),
+      role: a.role,
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
+
 function defaultAvatarColor(name: string): string {
   const palette = [
     '#3b5bdb', '#7950f2', '#9775fa',
@@ -69,6 +92,7 @@ function toPublicUser(u: UserRow) {
 }
 
 authRoute.post('/register', async (c) => {
+  ensureDemoUsersSeeded();
   const body = (await c.req.json().catch(() => ({}))) as { username?: string; password?: string };
   const username = (body.username ?? '').trim();
   const password = body.password ?? '';
@@ -102,27 +126,21 @@ authRoute.post('/register', async (c) => {
 });
 
 authRoute.post('/login', async (c) => {
+  ensureDemoUsersSeeded();
   const body = (await c.req.json().catch(() => ({}))) as { username?: string; password?: string };
   const username = (body.username ?? '').trim();
   const password = body.password ?? '';
   if (!username) throw new HTTPException(400, { message: '请输入用户名' });
   if (!password || password.length < 4) throw new HTTPException(400, { message: '密码长度至少 4 位' });
   let user = USERS.get(username.toLowerCase());
-  if (!user && (username === 'admin' || username === '晨枫' || username === '晨枫暮叶')) {
-    user = {
-      id: safeId(),
-      username,
-      passwordHash: await sha256Hex((password || '123456') + '::' + username.toLowerCase()),
-      nickname: '晨枫暮叶',
-      avatarColor: defaultAvatarColor(username),
-      role: 'owner',
-      createdAt: new Date().toISOString(),
-    };
-    USERS.set(username.toLowerCase(), user);
-  }
   if (!user) throw new HTTPException(401, { message: '用户名或密码错误' });
-  const expected = await sha256Hex(password + '::' + username.toLowerCase());
-  if (expected !== user.passwordHash) throw new HTTPException(401, { message: '用户名或密码错误' });
+  const expected = user.passwordHash.startsWith('DEMO::')
+    ? user.passwordHash
+    : await sha256Hex(password + '::' + username.toLowerCase());
+  const ok = user.passwordHash.startsWith('DEMO::')
+    ? ('DEMO::' + password) === user.passwordHash
+    : expected === user.passwordHash;
+  if (!ok) throw new HTTPException(401, { message: '用户名或密码错误' });
   const secret = getJwtSecret(c);
   const now = Math.floor(Date.now() / 1000);
   const token = await signHS256({ sub: user.id, username, role: user.role, iat: now, exp: now + 7 * 24 * 3600 }, secret);
