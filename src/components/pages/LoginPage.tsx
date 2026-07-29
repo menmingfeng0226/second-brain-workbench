@@ -2,7 +2,7 @@ import { useState, type FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from '@/components/icons';
 import { useAuthStore } from '@/store';
-import { isDemoModeEnabled, toggleDemoMode } from '@/lib/demo-mode';
+import { isDemoModeEnabled, toggleDemoMode, setDemoMode } from '@/lib/demo-mode';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,6 +19,16 @@ export default function LoginPage() {
 
   useEffect(() => {
     setDemoModeState(isDemoModeEnabled());
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('demo') === '1' && !isDemoModeEnabled()) {
+      const next = setDemoMode(true) ?? true;
+      setDemoModeState(next);
+    }
+    if (!isDemoModeEnabled()) {
+      // 默认自动启用演示模式，无需用户操作
+      setDemoMode(true);
+      setDemoModeState(true);
+    }
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {

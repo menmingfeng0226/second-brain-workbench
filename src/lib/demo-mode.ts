@@ -17,7 +17,13 @@ const LS_KEY = 'workbench.demoMode';
 
 export function isDemoModeEnabled(): boolean {
   try {
-    return localStorage.getItem(LS_KEY) === '1';
+    if (localStorage.getItem(LS_KEY) === '1') return true;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('demo') === '1') {
+      localStorage.setItem(LS_KEY, '1');
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
