@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Eye,
   Heart,
-} from 'lucide-react';
+} from '@/components/icons';
 import { channels, publishCalendarItems } from '../../data/mockData';
 import type { ChannelPlatform, PublishCalendarItem, PublishStatus } from '../../types';
 

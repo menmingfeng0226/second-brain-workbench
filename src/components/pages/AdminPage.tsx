@@ -15,7 +15,7 @@ import {
   Calendar,
   CheckSquare,
   BarChart3,
-} from 'lucide-react';
+} from '@/components/icons';
 import { backendMetrics, teamMembers } from '../../data/mockData';
 
 const BRAND_BLUE = '#1e40af';

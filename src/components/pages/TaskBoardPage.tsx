@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Link as LinkIcon,
   Zap,
-} from 'lucide-react';
+} from '@/components/icons';
 import { tasks, channels } from '../../data/mockData';
 import type { TaskItem, TaskStatus, TaskPriority, ChannelPlatform } from '../../types';
 

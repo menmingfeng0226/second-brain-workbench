@@ -13,7 +13,7 @@ import {
   ChevronRight,
   CalendarRange,
   RefreshCw,
-} from 'lucide-react';
+} from '@/components/icons';
 import type { ChannelPlatform, PublishRecord } from '../../types';
 import { useChannels, useDailyViewsTrend, usePublishRecords, useVideoLabs, useArticleLabs, usePlatformSnapshot } from '../../hooks/usePlatformData';
 

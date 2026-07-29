@@ -12,7 +12,7 @@ import {
   Upload,
   CalendarDays,
   HardDrive,
-} from 'lucide-react';
+} from '@/components/icons';
 import { channels } from '../../data/mockData';
 import type { ChannelPlatform } from '../../types';
 

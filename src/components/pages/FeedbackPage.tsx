@@ -19,7 +19,7 @@ import {
   XCircle,
   Eye,
   Send,
-} from 'lucide-react';
+} from '@/components/icons';
 import { useWorkbench } from '../../context/WorkbenchContext';
 import type { FeedbackStatus } from '../../types';
 

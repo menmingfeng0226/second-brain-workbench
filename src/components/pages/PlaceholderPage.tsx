@@ -1,4 +1,4 @@
-import { Construction, ArrowLeft, Sparkles } from 'lucide-react';
+import { Construction, ArrowLeft, Sparkles } from '@/components/icons';
 
 interface Props {
   name: string;

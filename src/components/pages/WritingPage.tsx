@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Clock, User, Type, Timer, Edit3, BookOpen, GripVertical } from 'lucide-react';
+import { FileText, Clock, User, Type, Timer, Edit3, BookOpen, GripVertical } from '@/components/icons';
 import { scripts, contentCards } from '../../data/mockData';
 import type { ScriptStatus } from '../../types';
 

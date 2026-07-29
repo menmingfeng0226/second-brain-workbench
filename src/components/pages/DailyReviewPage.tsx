@@ -21,7 +21,7 @@ import {
   FileText,
   Target,
   PenLine,
-} from 'lucide-react';
+} from '@/components/icons';
 import { contentCards, channels, tasks, topics, ideas } from '../../data/mockData';
 import type { ChannelPlatform, TaskPriority } from '../../types';
 

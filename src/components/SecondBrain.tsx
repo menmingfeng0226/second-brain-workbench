@@ -4,7 +4,7 @@ import {
   Sparkles,
   Clock,
   Target,
-} from 'lucide-react';
+} from '@/components/icons';
 import { brainTabs, filterGroups, contentCards } from '../data/mockData';
 import CardItem from './CardItem';
 

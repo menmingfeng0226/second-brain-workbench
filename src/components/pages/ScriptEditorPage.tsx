@@ -9,7 +9,7 @@ import {
   BookMarked,
   AlignLeft,
   Hash,
-} from 'lucide-react';
+} from '@/components/icons';
 import { scripts } from '../../data/mockData';
 
 const tabs = [

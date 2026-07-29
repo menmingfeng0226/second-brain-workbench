@@ -1,4 +1,4 @@
-import { Briefcase, TrendingUp, AlertTriangle, CheckCircle, User, Calendar, Flag, DollarSign, Target } from 'lucide-react';
+import { Briefcase, TrendingUp, AlertTriangle, CheckCircle, User, Calendar, Flag, DollarSign, Target } from '@/components/icons';
 import { projects, teamMembers } from '../../data/mockData';
 import type { Project, ProjectStatus } from '../../types';
 

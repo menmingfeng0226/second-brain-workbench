@@ -11,7 +11,7 @@ import {
   Copy,
   Clock,
   Hash,
-} from 'lucide-react';
+} from '@/components/icons';
 
 const presets = [
   {

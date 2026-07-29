@@ -1,6 +1,6 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowRight, Sparkles } from '@/components/icons';
 import { useAuthStore } from '@/store';
 import { isDemoModeEnabled, toggleDemoMode } from '@/lib/demo-mode';
 

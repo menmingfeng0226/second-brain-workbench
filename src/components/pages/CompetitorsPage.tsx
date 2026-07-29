@@ -8,7 +8,7 @@ import {
   Play,
   CalendarDays,
   BarChart2,
-} from 'lucide-react';
+} from '@/components/icons';
 import { competitors, channels } from '../../data/mockData';
 import type { ChannelPlatform } from '../../types';
 

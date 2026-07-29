@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, Sparkles } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Sparkles } from '@/components/icons';
 import { eventBus } from '@/lib/eventBus';
 import { isDemoModeEnabled, setDemoMode } from '@/lib/demo-mode';
 

@@ -8,7 +8,7 @@ import {
   Lightbulb,
   ArrowUpRight,
   Sparkles,
-} from 'lucide-react';
+} from '@/components/icons';
 import { hotItems, channels } from '../../data/mockData';
 import type { ChannelPlatform } from '../../types';
 

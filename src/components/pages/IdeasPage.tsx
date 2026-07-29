@@ -8,7 +8,7 @@ import {
   Link2,
   ChevronRight,
   Sparkles,
-} from 'lucide-react';
+} from '@/components/icons';
 import { ideas, channels } from '../../data/mockData';
 import type { IdeaPriority, IdeaStatus, ChannelPlatform, IdeaItem } from '../../types';
 import { useWorkbench } from '../../context/WorkbenchContext';

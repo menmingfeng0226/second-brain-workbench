@@ -1,4 +1,4 @@
-import { Plus, Zap, PenTool, Database, TrendingUp, Settings, User, Clock, BarChart3, Sparkles } from 'lucide-react';
+import { Plus, Zap, PenTool, Database, TrendingUp, Settings, User, Clock, BarChart3, Sparkles } from '@/components/icons';
 import { skills } from '../../data/mockData';
 import type { Skill } from '../../types';
 

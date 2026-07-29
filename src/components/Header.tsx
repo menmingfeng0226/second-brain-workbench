@@ -15,7 +15,7 @@ import {
   BookMarked,
   History,
   Timer,
-} from 'lucide-react';
+} from '@/components/icons';
 import { useWorkbench } from '../context/WorkbenchContext';
 import type { FeedbackStatus, SyncQueueStatus } from '../types';
 

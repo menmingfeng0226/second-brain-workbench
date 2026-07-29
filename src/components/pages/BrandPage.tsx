@@ -1,4 +1,4 @@
-import { Wallet, Handshake, CreditCard, Users, Building2, Calendar, Clock, ArrowRight, User, Mail, DollarSign, FileText } from 'lucide-react';
+import { Wallet, Handshake, CreditCard, Users, Building2, Calendar, Clock, ArrowRight, User, Mail, DollarSign, FileText } from '@/components/icons';
 import { brandDeals } from '../../data/mockData';
 import type { BrandDeal, BrandDealStatus } from '../../types';
 

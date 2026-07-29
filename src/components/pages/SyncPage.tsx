@@ -21,7 +21,7 @@ import {
   ChevronRight,
   User,
   RotateCcw,
-} from 'lucide-react';
+} from '@/components/icons';
 import { useWorkbench } from '../../context/WorkbenchContext';
 import type { SyncStatus } from '../../types';
 

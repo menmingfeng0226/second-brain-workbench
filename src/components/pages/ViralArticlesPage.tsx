@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   ChevronRight,
   RefreshCw,
-} from 'lucide-react';
+} from '@/components/icons';
 import type { ChannelPlatform, ArticleLab } from '../../types';
 import { useWorkbench } from '../../context/WorkbenchContext';
 import { useChannels, useArticleLabs } from '../../hooks/usePlatformData';

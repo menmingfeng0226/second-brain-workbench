@@ -1,4 +1,4 @@
-import { FolderKanban, Calendar, User, Link2, Lightbulb, ClipboardList, Pencil, Camera, Scissors, Rocket, Archive } from 'lucide-react';
+import { FolderKanban, Calendar, User, Link2, Lightbulb, ClipboardList, Pencil, Camera, Scissors, Rocket, Archive } from '@/components/icons';
 import { topics, topicCollections } from '../../data/mockData';
 import type { TopicStatus, TopicPriority } from '../../types';
 

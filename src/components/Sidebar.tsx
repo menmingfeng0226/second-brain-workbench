@@ -25,7 +25,7 @@ import {
   Coins,
   Kanban,
   RotateCcw,
-} from 'lucide-react';
+} from '@/components/icons';
 import { navGroups } from '../data/mockData';
 import { useWorkbench } from '../context/WorkbenchContext';
 

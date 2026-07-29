@@ -9,7 +9,7 @@ import {
   Share2,
   ChevronDown,
   ChevronUp,
-} from 'lucide-react';
+} from '@/components/icons';
 import type { ContentCard as ContentCardType } from '../types';
 
 interface Props {

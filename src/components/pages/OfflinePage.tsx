@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Users, Wallet, MapPin, User, Clock, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Users, Wallet, MapPin, User, Clock, ChevronRight, CheckCircle2 } from '@/components/icons';
 import { eventItems } from '../../data/mockData';
 
 const fmt = (n: number) => new Intl.NumberFormat('zh-CN').format(n);

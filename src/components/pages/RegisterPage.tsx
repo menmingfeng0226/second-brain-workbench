@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, UserPlus, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus, ShieldCheck, ArrowRight } from '@/components/icons';
 import { useAuthStore } from '@/store';
 
 export default function RegisterPage() {

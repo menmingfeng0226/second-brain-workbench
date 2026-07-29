@@ -1,4 +1,4 @@
-import { Search, PenLine, Upload, MessageCircle, Users, Home, FolderKanban, LayoutGrid, User, Calendar, Handshake, Lightbulb, Bell } from 'lucide-react';
+import { Search, PenLine, Upload, MessageCircle, Users, Home, FolderKanban, LayoutGrid, User, Calendar, Handshake, Lightbulb, Bell } from '@/components/icons';
 import { projects, brandDeals, topics } from '../../data/mockData';
 
 const BRAND_BLUE = '#1e40af';

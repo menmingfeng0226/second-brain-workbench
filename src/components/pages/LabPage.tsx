@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
-} from 'lucide-react';
+} from '@/components/icons';
 import type { ChannelPlatform, VideoLab } from '../../types';
 import { useWorkbench } from '../../context/WorkbenchContext';
 import { useChannels, useVideoLabs } from '../../hooks/usePlatformData';

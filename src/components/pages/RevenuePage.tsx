@@ -7,7 +7,7 @@ import {
   BarChart3,
   PieChart,
   CalendarDays,
-} from 'lucide-react';
+} from '@/components/icons';
 import { revenueItems, channels } from '../../data/mockData';
 import type { RevenueCategory } from '../../types';
 
