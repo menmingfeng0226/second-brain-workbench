@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
+import { createHashRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import PageSkeleton from '@/components/PageSkeleton';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -44,6 +44,6 @@ const routes: RouteObject[] = [
   },
 ];
 
-export const router = createBrowserRouter(routes);
+export const router = createHashRouter(routes);
 
 export default router;

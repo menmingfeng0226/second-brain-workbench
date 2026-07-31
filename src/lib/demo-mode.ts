@@ -15,8 +15,23 @@ import type { AuthTokens, AuthUser } from '@/lib/auth';
 
 const LS_KEY = 'workbench.demoMode';
 
+function isGitHubPagesHost(): boolean {
+  try {
+    const host = window.location.hostname;
+    // pages.github.com / *.github.io / 自定义 pages 域名但走静态托管（无后端时）统一强制演示
+    if (host.endsWith('.github.io')) return true;
+    if (host.includes('github.io')) return true;
+    if (host === 'menmingfeng0226.github.io') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function isDemoModeEnabled(): boolean {
   try {
+    // GitHub Pages / Vercel static preview 等纯静态托管无 Hono 后端，自动启用演示模式
+    if (isGitHubPagesHost()) return true;
     if (localStorage.getItem(LS_KEY) === '1') return true;
     const url = new URL(window.location.href);
     if (url.searchParams.get('demo') === '1') {
@@ -25,7 +40,7 @@ export function isDemoModeEnabled(): boolean {
     }
     return false;
   } catch {
-    return false;
+    return isGitHubPagesHost();
   }
 }
 

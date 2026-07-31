@@ -5,7 +5,9 @@ import vitePluginHonoDev from './vite-plugin-hono-dev'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const base = env.VITE_BASE_PATH ?? '/'
+  // GitHub Pages 默认子路径托管：https://menmingfeng0226.github.io/second-brain-workbench/
+  // 本地开发 / Vercel 部署可通过 VITE_BASE_PATH=/ 覆盖
+  const base = env.VITE_BASE_PATH ?? '/second-brain-workbench/'
   const isProd = mode === 'production'
 
   return {
