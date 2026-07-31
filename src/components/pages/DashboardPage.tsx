@@ -329,7 +329,7 @@ function StatusChip({ status }: { status: PublishRecord['status'] }) {
     planning: { bg: '#e5e7eb', color: '#374151', label: '策划' },
     filming: { bg: '#ede9fe', color: '#5b21b6', label: '拍摄' },
   };
-  const m = map[status];
+  const m = map[status] ?? { bg: '#f3f4f6', color: '#6b7280', label: status ?? '未知' };
   return (
     <span
       style={{
