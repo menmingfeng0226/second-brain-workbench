@@ -25,6 +25,7 @@ import {
   Coins,
   Kanban,
   RotateCcw,
+  Link2,
 } from '@/components/icons';
 import { navGroups } from '../data/mockData';
 import { useWorkbench } from '../context/WorkbenchContext';
@@ -56,6 +57,7 @@ const iconMap: Record<string, React.FC<{ size?: number; className?: string }>> =
   'refresh-cw': RefreshCw,
   'message-square': MessageSquare,
   lock: Lock,
+  link: Link2,
 };
 
 interface SidebarProps {

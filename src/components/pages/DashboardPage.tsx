@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Upload,
@@ -13,9 +13,17 @@ import {
   ChevronRight,
   CalendarRange,
   RefreshCw,
+  AlertTriangle,
+  Info,
+  Server,
+  Copy,
+  Check,
+  Terminal,
 } from '@/components/icons';
 import type { ChannelPlatform, PublishRecord } from '../../types';
 import { useChannels, useDailyViewsTrend, usePublishRecords, useVideoLabs, useArticleLabs, usePlatformSnapshot } from '../../hooks/usePlatformData';
+import { clearBackendHealthCache, getDataSourceStyle, getChannelDataSourceTag, probeBackendHealth } from '../../lib/platform/types';
+import { isDemoModeEnabled, setDemoMode } from '../../lib/demo-mode';
 
 type RangePreset = '7d' | '30d' | '90d' | 'custom';
 
@@ -352,8 +360,31 @@ export default function DashboardPage() {
   const [preset, setPreset] = useState<RangePreset>('30d');
   const [customStart, setCustomStart] = useState<string>(formatYYYYMMDD(addDays(today, -14)));
   const [customEnd, setCustomEnd] = useState<string>(formatYYYYMMDD(today));
+  const [demoOn, setDemoOn] = useState<boolean>(() => isDemoModeEnabled());
+  const [backendState, setBackendState] = useState<
+    { loading: boolean; ok: boolean | null; reason: string | null; lastCheck: number | null }
+  >({ loading: true, ok: null, reason: null, lastCheck: null });
+  const [copied, setCopied] = useState<boolean>(false);
 
-  const { channels: liveChannels, trendSeries: liveTrend, publishRecords: liveRecords, totals, isSyncing, syncNow, lastUpdatedAt, dataSource } =
+  // 挂载时做后端健康检查（每 30 秒重检一次，用户手动操作也会强制）
+  const checkBackend = useCallback(async (force = false) => {
+    setBackendState((s) => ({ ...s, loading: true }));
+    const start = Date.now();
+    try {
+      const r = await probeBackendHealth('', { force, cacheSeconds: 30 });
+      setBackendState({ loading: false, ok: r.ok, reason: r.reason, lastCheck: start });
+    } catch (e) {
+      setBackendState({ loading: false, ok: false, reason: (e as Error).message || 'UNKNOWN', lastCheck: start });
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkBackend(true);
+    const t = setInterval(() => { void checkBackend(false); }, 30_000);
+    return () => clearInterval(t);
+  }, [checkBackend]);
+
+  const { snap, channels: liveChannels, trendSeries: liveTrend, publishRecords: liveRecords, totals, isSyncing, syncNow, lastUpdatedAt, dataSource } =
     usePlatformSnapshot({ trigger: 'page-enter', rangeStart: customStart, rangeEnd: customEnd, onlyLinked: true });
   const { channels } = useChannels();
   const { trendSeries } = useDailyViewsTrend(customStart, customEnd);
@@ -597,6 +628,228 @@ export default function DashboardPage() {
         gap: 26,
       }}
     >
+      {/* ═══════════════════ 演示模式 BIG 红色警告条（开着就永远抓不到真实数据！） ═══════════════════ */}
+      {demoOn && (
+        <div
+          style={{
+            padding: '16px 20px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, #fff7ed 0%, #fee2e2 60%, #fecaca 100%)',
+            border: '1px solid #fb923c',
+            boxShadow: '0 10px 28px rgba(239,68,68,0.12)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: '#dc2626',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              marginTop: 1,
+              boxShadow: '0 6px 16px rgba(220,38,38,0.35)',
+            }}
+          >
+            <AlertTriangle size={20} />
+          </div>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#991b1b', marginBottom: 6 }}>
+              🚨 当前【演示模式】已启用 —— 你看到的所有数据都是本地假数据，和你绑定的 9 个平台真实账号 **完全无关**！
+            </div>
+            <div style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 1.7 }}>
+              演示模式（workbench.demoMode.override=1 / URL ?demo=1 / github.io 纯静态托管兜底）
+              会在前端拦截所有 <code style={{ background:'rgba(220,38,38,0.08)', padding:'1px 6px', borderRadius:4 }}>/api/platforms/*</code> 请求，
+              永远不会发往真实 Hono 后端，所以即使你 9 个平台已经全部「已连接✅」，调度器也只能用演示模式返回 mock。
+              点击右侧按钮：关闭演示模式，清理拦截逻辑，立即重抓你绑定的真实账号数据。
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <button
+              className="btn btn-primary"
+              style={{
+                background: '#b91c1c',
+                border: '1px solid #991b1b',
+                color: '#fff',
+                padding: '11px 20px',
+                fontWeight: 800,
+                fontSize: 13.5,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 8px 20px rgba(185,28,28,0.3)',
+              }}
+              onClick={() => {
+                // 写 override=0（最高优先级）：github.io 也不自动启用演示模式
+                setDemoMode(false);
+                setDemoOn(false);
+                clearBackendHealthCache();
+                // 关闭后立刻重抓一次全平台 + 立刻重检后端健康
+                void checkBackend(true);
+                void syncNow({ trigger: 'manual', onlyLinked: true });
+              }}
+            >
+              🔓 关闭演示模式 · 立刻重抓真实数据
+            </button>
+            <div style={{ fontSize: 11, color: '#b91c1c', textAlign: 'right', fontWeight: 600 }}>
+              点击后会刷新 React Query cache，约 10 秒显示你真实数据
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ 真实后端未启动警告（仅当 demoOn=false 时显示；优先级低于演示模式） ═══════════════════ */}
+      {!demoOn && !backendState.loading && backendState.ok === false && (
+        <div
+          style={{
+            padding: '16px 20px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #e0e7ff 100%)',
+            border: '1px solid #60a5fa',
+            boxShadow: '0 10px 28px rgba(37,99,235,0.1)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: '#2563eb',
+              color: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              marginTop: 1,
+              boxShadow: '0 6px 16px rgba(37,99,235,0.35)',
+            }}
+          >
+            <Server size={20} />
+          </div>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: '#1e3a8a', marginBottom: 6 }}>
+              ⚠️ 真实 Hono 后端未就绪 —— 9 平台请求只能降级示例数据，所以你看板看到的数据和你账号不一致！
+            </div>
+            <div style={{ fontSize: 12.5, color: '#1e40af', lineHeight: 1.8, marginBottom: 10 }}>
+              健康检查结果：<b style={{ color: '#b91c1c', background: '#fff1f2', padding: '2px 7px', borderRadius: 5 }}>{backendState.reason}</b>
+              <br />
+              你现在访问的是纯前端（Vite :5173），但真实抓取必须由 Hono 后端处理（绕过 9 平台 CORS / WebCrypto 凭据解密）。
+              <b>本地启动方式：</b>打开一个新的终端标签，<code style={{ background: 'rgba(59,130,246,0.12)', padding: '2px 7px', borderRadius: 5 }}>cd upzhu-workbench</code>，运行下面的「一键启动后端」命令。
+            </div>
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 12,
+                background: '#0f172a',
+                color: '#e2e8f0',
+                border: '1px solid #334155',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 12.5,
+                fontFamily: '"SF Mono", Menlo, Consolas, monospace',
+              }}
+            >
+              <Terminal size={18} style={{ color: '#94a3b8', flexShrink: 0 }} />
+              <div style={{ flex: 1, wordBreak: 'break-all' }}>
+                $ cd upzhu-workbench &amp;&amp; npm run dev:server
+              </div>
+              <button
+                className="btn btn-secondary"
+                style={{
+                  padding: '6px 12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: copied ? '#16a34a' : '#2563eb',
+                  border: `1px solid ${copied ? '#16a34a' : '#2563eb'}`,
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  flexShrink: 0,
+                }}
+                onClick={async () => {
+                  const cmd = 'cd "/Users/menmingfeng/Library/Application Support/TRAE SOLO CN/ModularData/ai-agent/work-mode-projects/6a61aba1530a25ea2d39aa22/upzhu-workbench" && npm run dev:server';
+                  try {
+                    if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(cmd);
+                    }
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1800);
+                  } catch { /* noop */ }
+                }}
+              >
+                {copied ? (<><Check size={14} /> 已复制 ✓</>) : (<><Copy size={14} /> 一键复制命令</>)}
+              </button>
+            </div>
+            <div style={{ fontSize: 11.5, color: '#334155', marginTop: 8, lineHeight: 1.7 }}>
+              · 命令执行后终端会显示：<code style={{ background:'#f1f5f9', padding:'1px 6px', borderRadius:4 }}>Hono backend running at http://localhost:5174</code>（约 3 秒启动完成）
+              <br />
+              · 启动完成后，回到看板点下面的 <b style={{ color: '#2563eb' }}>「我已启动后端·立刻重检健康 + 重抓 9 平台」</b>按钮，或者等 30 秒看板自动重检。
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <button
+              className="btn btn-primary"
+              style={{
+                background: '#2563eb',
+                border: '1px solid #1d4ed8',
+                color: '#fff',
+                padding: '11px 20px',
+                fontWeight: 800,
+                fontSize: 13,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 8px 20px rgba(37,99,235,0.3)',
+              }}
+              onClick={() => {
+                clearBackendHealthCache();
+                void checkBackend(true);
+                void syncNow({ trigger: 'manual', onlyLinked: true });
+              }}
+            >
+              ▶ 我已启动后端·立刻重检 + 重抓
+            </button>
+            <div style={{ fontSize: 11, color: '#1d4ed8', textAlign: 'right', fontWeight: 600 }}>
+              启动 dev:server 后点此按钮，3 秒内后端就绪 + 10 秒内 9 平台真实数据同步
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ 同步警告列表（非致命错误但要告诉你） ═══════════════════ */}
+      {snap?.warnings?.length ? (
+        <div
+          style={{
+            padding: '12px 16px',
+            borderRadius: 14,
+            background: '#fffbeb',
+            border: '1px solid #fcd34d',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800, color: '#92400e' }}>
+            <Info className="icon-sm" />
+            同步警告 {snap.warnings.length} 条（部分平台抓取失败，已自动降级示例数据展示）
+          </div>
+          {snap.warnings.slice(0, 6).map((w, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#78350f', paddingLeft: 24, lineHeight: 1.7 }}>
+              · <b style={{ color: '#92400e' }}>{w.platform}</b>：{w.message}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {/* ═══════════════════ 顶部：时间范围控制 ═══════════════════ */}
       <section
         style={{
@@ -648,24 +901,29 @@ export default function DashboardPage() {
               <span>{startLabel.slice(2)} → {endLabel.slice(2)} · {totals.accountCount} 渠道</span>
               {lastUpdatedAt && <span>更新：{new Date(lastUpdatedAt).toLocaleString('zh-CN', { hour12: false })}</span>}
               {dataSource && (
-                <span>
-                  {Object.entries(dataSource).map(([p, s]) => (
-                    <span
-                      key={p}
-                      title={p as string}
-                      style={{
-                        display: 'inline-block',
-                        padding: '0 6px',
-                        marginRight: 4,
-                        borderRadius: 4,
-                        background: s === 'edge-proxy' ? '#ecfdf5' : '#f8fafc',
-                        color: s === 'edge-proxy' ? '#047857' : '#475569',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {p}:{s === 'edge-proxy' ? '真' : '示例'}
-                    </span>
-                  ))}
+                <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                  {Object.entries(dataSource).map(([p, s]) => {
+                    const style = getDataSourceStyle(s);
+                    return (
+                      <span
+                        key={p}
+                        title={`${p} → ${style.label}`}
+                        style={{
+                          display: 'inline-block',
+                          padding: '1px 7px',
+                          marginRight: 2,
+                          borderRadius: 6,
+                          background: style.bg,
+                          color: style.color,
+                          border: style.border,
+                          fontWeight: 700,
+                          fontSize: 10.5,
+                        }}
+                      >
+                        {p}:{style.real ? '真' : style.tier === 'demo' ? '演示' : style.tier === 'warn' ? '降' : '示'}
+                      </span>
+                    );
+                  })}
                 </span>
               )}
             </div>
@@ -675,17 +933,23 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={() => syncNow({ trigger: 'manual', rangeStart: startLabel, rangeEnd: endLabel, onlyLinked: true })}
-            disabled={isSyncing}
-            className="btn btn-secondary"
+            disabled={isSyncing || demoOn}
+            className="btn btn-primary"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '8px 14px',
+              padding: '9px 18px',
+              background: demoOn ? '#94a3b8' : '#dc2626',
+              border: demoOn ? '1px solid #94a3b8' : '1px solid #dc2626',
+              color: '#fff',
+              fontWeight: 800,
+              boxShadow: demoOn ? 'none' : '0 8px 22px rgba(220,38,38,0.25)',
             }}
+            title={demoOn ? '演示模式已启用，先关闭演示模式才能重抓真实数据' : '强制绕过 1 分钟 staleTime，重新跑 9 平台全部抓取'}
           >
             <RefreshCw className={`icon-sm ${isSyncing ? 'spin' : ''}`} />
-            {isSyncing ? '同步中…' : '刷新数据'}
+            {isSyncing ? '同步中…（9 平台抓取约 8~12 秒）' : '🔄 强制重抓全平台真实数据'}
           </button>
           <div
             style={{
@@ -1019,6 +1283,55 @@ export default function DashboardPage() {
                       background: `linear-gradient(90deg, ${c.color} 0%, ${c.color}4D 100%)`,
                     }}
                   />
+                  {/* ═══════════════════ ✅ 新增：数据源 mini pill（tile 右上角） ═══════════════════ */}
+                  {(() => {
+                    const { source, hits } = getChannelDataSourceTag(c);
+                    const s = getDataSourceStyle(source);
+                    const realCount = hits?.real?.length ?? 0;
+                    const totalCount = 6;
+                    const tooltip = hits
+                      ? `真实接口: ${hits.real.join(',') || '(无)'}  Mock接口: ${hits.mock.join(',') || '(无)'}  演示拦截: ${hits.demo.join(',') || '(无)'}`
+                      : s.label;
+                    return (
+                      <div
+                        title={tooltip}
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          padding: '2px 7px',
+                          borderRadius: 8,
+                          background: s.bg,
+                          color: s.color,
+                          border: s.border || '1px solid transparent',
+                          fontSize: 9.5,
+                          fontWeight: 800,
+                          lineHeight: 1.3,
+                          zIndex: 2,
+                          maxWidth: 'calc(100% - 20px)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        <span style={{ fontSize: 10 }}>
+                          {s.real ? '✅' : source === 'demo-mock' ? '⚠️' : source === 'mock-fallback' ? '⚠️' : '💡'}
+                        </span>
+                        <span>
+                          {s.real
+                            ? `真·${realCount}/${totalCount}`
+                            : source === 'demo-mock'
+                            ? '演示拦截'
+                            : source === 'mock-fallback'
+                            ? '真实失败·降级'
+                            : '静态示例'}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div
                       style={{

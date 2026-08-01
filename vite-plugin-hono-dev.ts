@@ -134,9 +134,52 @@ function proxyToHono(incomingReq, res, rawBuf) {
  *   现在：通过子进程 `tsx api/_hono-standalone.ts <PORT>` 在本机 5174 端口独立启动
  *         Hono HTTP 服务；Vite 的中间件把 /api/* 请求代理到这个子进程。
  *         这样 Hono 与 Vite 完全解耦，不再依赖 ssrLoadModule 的路径解析。
+ *
+ * 修复（2026-08-01）：
+ *   ① 启动竞态：浏览器一次加载并发打 9 平台，第 1 个请求在 waitForTcp() 等待时，
+ *      后续请求看到 honoProcStarted=true 直接代理，此时 Hono 仍未 listen() →
+ *      ECONNREFUSED 3~9 条随机报错，看起来像 dev server 卡住。
+ *      → 改用「启动 Promise latch」：所有请求 await 同一个启动 Promise，并发安全。
+ *   ② 代理失败兜底：proxyToHono EConnRefused/超时，先内部 retry 最多 3 次（间隔 300ms），
+ *      仍失败则写 502 JSON body（不再留浏览器 hanging），最后调用 next() 避免
+ *      Vite middleware pipeline 悬挂。
+ *   ③ 保证每个请求最终有响应（要么代理成功，要么 502，要么走 next）。
  */
 export default function vitePluginHonoDev() {
-  let honoProcStarted = false;
+  /** 启动 latch：所有并发请求 await 同一个 Promise，直到 Hono TCP 真的能连上 */
+  let honoReadyPromise = null;
+
+  function ensureHonoStarted() {
+    if (honoReadyPromise) return honoReadyPromise;
+    honoReadyPromise = (async () => {
+      try {
+        startHonoStandalone();
+        await waitForTcp(HONO_HOST, HONO_PORT, 20000);
+        return true;
+      } catch (e) {
+        // 失败了清掉 latch（下一次请求重试启动），避免永远失败
+        honoReadyPromise = null;
+        throw e;
+      }
+    })();
+    return honoReadyPromise;
+  }
+
+  function write502(res, message) {
+    try {
+      if (res.writableEnded) return;
+      res.statusCode = 502;
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({
+        ok: false,
+        code: 502,
+        error: message,
+        source: 'mock',
+        message,
+        data: null,
+      }));
+    } catch { /* ignore */ }
+  }
 
   return {
     name: 'vite-plugin-hono-dev',
@@ -148,22 +191,14 @@ export default function vitePluginHonoDev() {
         const isApi = url === '/api' || url.startsWith('/api/') || url.startsWith('/api?');
         if (!isApi) return next();
 
-        // 懒加载启动 hono 子进程（只有当有 /api 请求时才启动，避免 vite 冷启动过重）
-        if (!honoProcStarted) {
-          honoProcStarted = true;
-          try {
-            startHonoStandalone();
-            await waitForTcp(HONO_HOST, HONO_PORT, 20000);
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            process.stderr.write(`[vite-plugin-hono-dev] hono 进程启动失败: ${msg}\n`);
-            try {
-              res.statusCode = 502;
-              res.setHeader('content-type', 'application/json; charset=utf-8');
-              res.end(JSON.stringify({ code: 502, message: `[Hono Standalone] 启动失败: ${msg}`, data: null }));
-            } catch { /* ignore */ }
-            return;
-          }
+        // 1) 等 Hono 真的 listen（所有并发请求都 await 同一个启动 latch，无竞态）
+        try {
+          await ensureHonoStarted();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          process.stderr.write(`[vite-plugin-hono-dev] hono 启动失败: ${msg}\n`);
+          write502(res, `[Hono Standalone] 启动失败: ${msg}`);
+          return next?.();
         }
 
         const method = (req.method ?? 'GET').toUpperCase();
@@ -178,19 +213,31 @@ export default function vitePluginHonoDev() {
           });
         }
 
-        try {
-          await proxyToHono(req, res, rawBuf);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          const stack = err instanceof Error ? err.stack : undefined;
-          process.stderr.write(`[vite-plugin-hono-dev] ${method} ${url} 失败: ${message}\n`);
-          if (stack) process.stderr.write(stack + '\n');
+        // 2) Hono 刚 listen 的前几十毫秒偶发 EConnRefused（TCP backlog）→ 内部重试 3 次
+        let lastErr = null;
+        for (let i = 0; i < 3; i++) {
           try {
-            res.statusCode = 502;
-            res.setHeader('content-type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ code: 502, message: `[Hono 代理转发] ${message}`, data: null }));
-          } catch { /* ignore */ }
+            await proxyToHono(req, res, rawBuf);
+            return;
+          } catch (err) {
+            lastErr = err;
+            const message = err instanceof Error ? err.message : String(err);
+            // 启动瞬时的连接拒绝 / 超时 → 重试
+            if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|proxy timeout|socket hang up/i.test(message) && i < 2) {
+              await new Promise((r) => setTimeout(r, 300));
+              continue;
+            }
+            // 其他错误 → 不再重试
+            break;
+          }
         }
+
+        // 3) 所有重试都失败 → 写 502 body（保证浏览器不 hanging），再走 next 兜底
+        const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
+        process.stderr.write(`[vite-plugin-hono-dev] ${method} ${url} 失败: ${message}\n`);
+        if (lastErr instanceof Error && lastErr.stack) process.stderr.write(lastErr.stack + '\n');
+        write502(res, `[Hono 代理转发] ${message}`);
+        return next?.();
       });
     },
   };

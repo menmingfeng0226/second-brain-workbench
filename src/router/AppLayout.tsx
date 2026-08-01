@@ -34,6 +34,7 @@ import ProjectPage from '@/components/pages/ProjectPage';
 import SkillsPage from '@/components/pages/SkillsPage';
 import BrandPage from '@/components/pages/BrandPage';
 import AdminPage from '@/components/pages/AdminPage';
+import AccountSettingsPage from '@/components/pages/AccountSettingsPage';
 import DashboardPage from '@/components/pages/DashboardPage';
 import PublishCalendarPage from '@/components/pages/PublishCalendarPage';
 import { useUiStore } from '@/store';
@@ -109,6 +110,9 @@ navGroups.forEach((g) => {
       case 'admin':
         pageMetaMap[item.id] = { title: '后台管理', subtitle: '经营数据看板 · 团队 KPI · 系统设置', badge: '6 人团队' };
         break;
+      case 'account-settings':
+        pageMetaMap[item.id] = { title: '平台账号绑定', subtitle: '9 大平台凭据加密绑定 · AES-GCM · 调度器每日自动抓取', badge: '9 平台' };
+        break;
       case 'feedback':
         pageMetaMap[item.id] = { title: '协作反馈与批注', subtitle: '行内批注 · @ 提及通知 · 状态流转 · 回复讨论', badge: '反馈 5 条' };
         break;
@@ -168,6 +172,8 @@ function AppInnerLayout() {
         return <BrandPage />;
       case 'admin':
         return <AdminPage />;
+      case 'account-settings':
+        return <AccountSettingsPage />;
       case 'ideas':
         return <IdeasPage />;
       case 'script':

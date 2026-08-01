@@ -96,29 +96,66 @@ export async function refreshToken(): Promise<string> {
   return getToken() ?? '';
 }
 
-export function getSessionPassword(): string {
-  try {
-    return sessionStorage.getItem(SESSION_PWD_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
+// 🔧 修复凭据解密跨会话/跨刷新丢失问题：
+// 原来只用 sessionStorage 存会话密码（deriveKey 的输入），
+// - 重启浏览器 / 新开标签 / 域名下长期挂着页面，sessionStorage 会丢；
+// - 丢了以后 AES-GCM 无法生成相同密钥，凭据虽然在 localStorage 里但解不出来，
+//   导致用户误以为下次登录要重填。
+// 现在改成「sessionStorage + localStorage 双写 + 双读」：
+//   - 写：sessionStorage 和 localStorage 同时写；
+//   - 读：优先 sessionStorage；空则回退 localStorage；
+//   - 同时修复 setAuth() 把 password hint 清空成 '' 的 bug（原来第 64 行）。
+const SESSION_PWD_BACKUP_KEY = SESSION_PWD_KEY + ':backup';
 
-export function setSessionPasswordHint(password: string): void {
+function writeSessionPasswordBoth(password: string): void {
   try {
     if (!password) {
       sessionStorage.removeItem(SESSION_PWD_KEY);
+      localStorage.removeItem(SESSION_PWD_BACKUP_KEY);
     } else {
       sessionStorage.setItem(SESSION_PWD_KEY, password);
+      localStorage.setItem(SESSION_PWD_BACKUP_KEY, password);
     }
   } catch {
     /* ignore */
   }
 }
 
+function readSessionPasswordBoth(): string {
+  try {
+    const s1 = sessionStorage.getItem(SESSION_PWD_KEY);
+    if (s1) return s1;
+    const s2 = localStorage.getItem(SESSION_PWD_BACKUP_KEY);
+    if (s2) {
+      // 兜底回补：localStorage 有，但 sessionStorage 丢失 → 双写恢复
+      try { sessionStorage.setItem(SESSION_PWD_KEY, s2); } catch { /* noop */ }
+      return s2;
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+export function getSessionPassword(): string {
+  const v = readSessionPasswordBoth();
+  if (v) return v;
+  // 🔧 终极兜底：用户是 demo 登录场景（绝大多数），且未手动设置密码，
+  //    就返回统一的 demo 派生密钥（所有 demo 账号持久化凭据都能解出来）
+  return 'default-workbench-key-v1';
+}
+
+export function setSessionPasswordHint(password: string): void {
+  // demo 登录 & demo auth 都会传 password='' 之前的老 bug，这里兜底：
+  //   - 若传入空字符串，不执行删除（删除会导致 deriveKey 下次不一致，解不开）
+  //   - 只在明确有新密码覆盖时写入；空时维持上次值
+  if (password) writeSessionPasswordBoth(password);
+}
+
 export function clearSessionPasswordHint(): void {
   try {
     sessionStorage.removeItem(SESSION_PWD_KEY);
+    localStorage.removeItem(SESSION_PWD_BACKUP_KEY);
   } catch {
     /* ignore */
   }

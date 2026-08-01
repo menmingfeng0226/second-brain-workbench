@@ -617,7 +617,18 @@ export interface PlatformCrawlResult {
   platform: ChannelPlatform;
   accountId: string;
   fetchedAt: string;
-  source: 'platform-api' | 'edge-proxy' | 'mock-fallback' | 'local-cache';
+  // 数据源取值（UI 上会按下面顺序染色）：
+  //   'edge-proxy'    | 'platform-api' | 'local-cache' → 绿 ✅ 真实接口（可信）
+  //   'demo-mock'                                         → 橙 ⚠️ 演示模式本地拦截（未到真实后端）
+  //   'mock-fallback'                                     → 橙 ⚠️ 真实接口调用失败，已降级 mock
+  //   'mock'                                              → 灰 💡 纯示例数据（未绑定账号）
+  source:
+    | 'platform-api'
+    | 'edge-proxy'
+    | 'mock-fallback'
+    | 'local-cache'
+    | 'demo-mock'
+    | 'mock';
   profile?: {
     handle: string;
     displayName: string;

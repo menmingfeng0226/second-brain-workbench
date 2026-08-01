@@ -14,7 +14,7 @@ export interface PlatformProxyResponse<T = unknown> {
   error?: string;
   code?: string;
   fetchedAt?: string;
-  source?: 'direct' | 'mock';
+  source?: 'direct' | 'mock' | 'hybrid';
 }
 
 export const ALLOWED_PLATFORMS = [

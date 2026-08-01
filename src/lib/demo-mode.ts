@@ -14,11 +14,18 @@ import {
 import type { AuthTokens, AuthUser } from '@/lib/auth';
 
 const LS_KEY = 'workbench.demoMode';
+/** 用户手动操作（Dashboard/AccountSettings 里点红色「关闭演示模式」按钮）的强覆盖：
+ *  - 1 = 用户手动开启（即使在 localhost 也强制演示）
+ *  - 0 = 用户手动关闭（即使在 github.io 纯静态托管，也不自动启用演示，让请求直接走真实后端/报真实错误）
+ *  - 不存在 = 走自动探测逻辑（localhost=真实后端，github.io=演示模式兜底）
+ *  优先级：LS_OVERRIDE > URL 参数 > LS_KEY > 域名自动探测
+ */
+const LS_OVERRIDE = 'workbench.demoMode.override';
 
 function isGitHubPagesHost(): boolean {
   try {
     const host = window.location.hostname;
-    // pages.github.com / *.github.io / 自定义 pages 域名但走静态托管（无后端时）统一强制演示
+    // pages.github.com / *.github.io / 自定义 pages 域名但走静态托管（无后端时）统一强制演示（仅当无 override=0 时）
     if (host.endsWith('.github.io')) return true;
     if (host.includes('github.io')) return true;
     if (host === 'menmingfeng0226.github.io') return true;
@@ -30,14 +37,29 @@ function isGitHubPagesHost(): boolean {
 
 export function isDemoModeEnabled(): boolean {
   try {
-    // GitHub Pages / Vercel static preview 等纯静态托管无 Hono 后端，自动启用演示模式
-    if (isGitHubPagesHost()) return true;
-    if (localStorage.getItem(LS_KEY) === '1') return true;
+    // 最高优先级：用户手动 override（点红色按钮关闭/开启演示模式）
+    const override = localStorage.getItem(LS_OVERRIDE);
+    if (override === '0') return false;
+    if (override === '1') return true;
+
+    // 第 2 级：URL 参数强制演示（?demo=1）
     const url = new URL(window.location.href);
     if (url.searchParams.get('demo') === '1') {
       localStorage.setItem(LS_KEY, '1');
       return true;
     }
+    if (url.searchParams.get('demo') === '0') {
+      localStorage.removeItem(LS_KEY);
+      localStorage.setItem(LS_OVERRIDE, '0');
+      return false;
+    }
+
+    // 第 3 级：localStorage 手动开关（老版本兼容性）
+    if (localStorage.getItem(LS_KEY) === '1') return true;
+
+    // 第 4 级：域名自动探测（GitHub Pages 纯静态托管 → 兜底演示，但用户点 override=0 会在第 1 级短路）
+    if (isGitHubPagesHost()) return true;
+
     return false;
   } catch {
     return isGitHubPagesHost();
@@ -46,6 +68,8 @@ export function isDemoModeEnabled(): boolean {
 
 export function setDemoMode(enabled: boolean) {
   try {
+    // 写 override（最高优先级）：用户明确选择的状态，不因域名/刷新改变
+    localStorage.setItem(LS_OVERRIDE, enabled ? '1' : '0');
     if (enabled) {
       localStorage.setItem(LS_KEY, '1');
     } else {

@@ -16,32 +16,45 @@ const QK = {
   crawlers: ['platform', 'crawl-jobs'] as const,
 };
 
-let lastSyncKey = 0;
+/** 页面级别默认全量 scope：所有派生 hook 共享同一个查询，不再各自调 scheduler（避免无限级联） */
+const DEFAULT_FULL_SCOPE: SyncAllOptions = {
+  scope: ['profile', 'channel-metrics', 'published-list', 'viral-videos', 'viral-articles', 'trend'],
+  trigger: 'page-enter',
+  onlyLinked: true,
+};
 
-export function usePlatformSnapshot(options: SyncAllOptions = {}) {
+export type UsePlatformSnapshotOpts =
+  Partial<SyncAllOptions> & { rangeStart?: string; rangeEnd?: string };
+
+const _ensureOpts = (opts?: UsePlatformSnapshotOpts): Partial<SyncAllOptions> => {
+  if (!opts) return {};
+  // ⚠️ rangeStart/rangeEnd 不是 SyncAllOptions 字段，用在 Dashboard 里做客户端过滤，不要传到 syncAllPlatforms（会被 JSON.stringify 进 dedupKey 但无害，过滤掉更干净）
+  const { rangeStart: _rs, rangeEnd: _re, ...rest } = opts;
+  void _rs; void _re;
+  return rest;
+};
+
+export function usePlatformSnapshot(opts?: UsePlatformSnapshotOpts) {
+  const baseOpts = _ensureOpts(opts);
   const qc = useQueryClient();
   const query = useQuery<SnapshotResult, Error>({
-    queryKey: [
-      ...QK.snapshot,
-      JSON.stringify(options.platforms ?? 'all'),
-      options.onlyLinked ?? true,
-      options.trigger ?? 'page-enter',
-      lastSyncKey,
-    ] as const,
-    queryFn: () => scheduler.syncAllPlatforms(options),
+    queryKey: QK.snapshot,
+    queryFn: () => scheduler.syncAllPlatforms({ ...DEFAULT_FULL_SCOPE, ...baseOpts }),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
+    refetchOnReconnect: false,
     retry: false,
     placeholderData: keepPreviousData,
   });
 
   const trigger = useMutation<SnapshotResult, Error, SyncAllOptions | undefined>({
-    mutationFn: (opts?: SyncAllOptions) =>
-      scheduler.syncAllPlatforms({ ...options, ...(opts ?? {}) }),
+    mutationFn: (extra?: SyncAllOptions) =>
+      scheduler.syncAllPlatforms({ ...DEFAULT_FULL_SCOPE, ...baseOpts, ...(extra ?? {}), trigger: extra?.trigger ?? 'manual' }),
     onSuccess: (s: SnapshotResult) => {
       qc.setQueryData(QK.snapshot, s);
+      // ✅ 强制重算一次（不是改 queryKey，避免 5 个派生 hook 级联全量重跑）
+      void qc.invalidateQueries({ queryKey: QK.snapshot, exact: true });
     },
   });
 
@@ -135,7 +148,7 @@ export function usePlatformSnapshot(options: SyncAllOptions = {}) {
 }
 
 export function useChannels(filter?: { platforms?: ChannelPlatform[]; categories?: ChannelData['category'][] }) {
-  const { channels, ...rest } = usePlatformSnapshot({ scope: ['profile', 'channel-metrics', 'trend'] });
+  const { channels, ...rest } = usePlatformSnapshot();
   const filtered = useMemo(() => {
     return channels.filter((c: ChannelData) => {
       if (filter?.platforms?.length && !filter.platforms.includes(c.id)) return false;
@@ -160,7 +173,7 @@ function ensureArticleHot(a: any) {
 }
 
 export function useVideoLabs(filter?: { platforms?: ChannelPlatform[]; tags?: string[]; limit?: number }) {
-  const { videos, ...rest } = usePlatformSnapshot({ scope: ['published-list', 'viral-videos'] });
+  const { videos, ...rest } = usePlatformSnapshot();
   const filtered = useMemo(() => {
     let list = videos.map(ensureVideoHot);
     if (filter?.platforms?.length) list = list.filter((v) => filter.platforms!.includes(v.channel));
@@ -173,7 +186,7 @@ export function useVideoLabs(filter?: { platforms?: ChannelPlatform[]; tags?: st
 }
 
 export function useArticleLabs(filter?: { platforms?: ChannelPlatform[]; tags?: string[]; limit?: number }) {
-  const { articles, ...rest } = usePlatformSnapshot({ scope: ['published-list', 'viral-articles'] });
+  const { articles, ...rest } = usePlatformSnapshot();
   const filtered = useMemo(() => {
     let list = articles.map(ensureArticleHot);
     if (filter?.platforms?.length) list = list.filter((a) => filter.platforms!.includes(a.channel));
@@ -186,12 +199,13 @@ export function useArticleLabs(filter?: { platforms?: ChannelPlatform[]; tags?: 
 }
 
 export function useDailyViewsTrend(rangeStart?: string, rangeEnd?: string) {
-  const { trendSeries, ...rest } = usePlatformSnapshot({ scope: ['trend'], rangeStart, rangeEnd });
+  const { trendSeries, ...rest } = usePlatformSnapshot();
+  void rangeStart; void rangeEnd;
   return { trendSeries, ...rest };
 }
 
 export function usePublishRecords(filter?: { platforms?: ChannelPlatform[] }) {
-  const { publishRecords, ...rest } = usePlatformSnapshot({ scope: ['published-list'] });
+  const { publishRecords, ...rest } = usePlatformSnapshot();
   const filtered = useMemo(() => {
     if (!filter?.platforms?.length) return publishRecords;
     return publishRecords.filter((r: { platform: ChannelPlatform }) => filter.platforms!.includes(r.platform));
@@ -202,10 +216,12 @@ export function usePublishRecords(filter?: { platforms?: ChannelPlatform[] }) {
 export function useSyncAll() {
   const qc = useQueryClient();
   return useMutation<SnapshotResult, Error, SyncAllOptions | undefined>({
-    mutationFn: (opts?: SyncAllOptions) => scheduler.syncAllPlatforms(opts ?? { trigger: 'manual' }),
+    mutationFn: (opts?: SyncAllOptions) =>
+      scheduler.syncAllPlatforms({ ...DEFAULT_FULL_SCOPE, ...(opts ?? {}), trigger: opts?.trigger ?? 'manual' }),
     onSuccess: (snap: SnapshotResult) => {
-      lastSyncKey++;
       qc.setQueryData(QK.snapshot, snap);
+      // ✅ 不再改 lastSyncKey（改 queryKey → 级联 N 次调度，是卡死的根因），只 set + invalidate
+      void qc.invalidateQueries({ queryKey: QK.snapshot, exact: true });
     },
   });
 }

@@ -4,8 +4,11 @@ import { eventBus } from '@/lib/eventBus';
 import { isDemoModeEnabled, setDemoMode } from '@/lib/demo-mode';
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
   onReset?: () => void;
+  // 🔧 router errorElement 场景：外部强制注入一个已发生的 Error 实例，
+  //    绕过 getDerivedStateFromError 直接展示错误面板
+  forcedError?: Error | null;
 }
 
 interface State {
@@ -19,6 +22,16 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  static getDerivedStateFromProps(props: Props, state: State): State | null {
+    // forcedError 被设置时：让实例立刻进入 hasError 状态（给 router errorElement 兜底用）
+    if (props.forcedError && (!state.hasError || state.error !== props.forcedError)) {
+      return { hasError: true, error: props.forcedError };
+    }
+    // forcedError 被清空但 state 还有错误 → 保留（onReset 才清）
+    if (!props.forcedError && state.hasError) return null;
+    return null;
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {

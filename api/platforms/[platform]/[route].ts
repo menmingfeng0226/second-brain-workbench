@@ -8,6 +8,8 @@ import {
   type PlatformProxyRequest,
 } from '../_shared/platform-utils';
 import { mockChannels, videoLabs, articleLabs, dailyViewsTrend, publishRecords } from '../_shared/mock-shared';
+import { runCrawler } from '../_shared/crawlers';
+import type { CrawlContext } from '../_shared/crawlers';
 
 const METHODS: Record<string, string[]> = {
   '/profile/me': ['GET', 'POST'],
@@ -118,30 +120,94 @@ function vercel(req: VercelRequest, res: VercelResponse) {
   }
   const cors = corsHeaders(req);
   for (const [k, v] of Object.entries(cors)) res.setHeader(k, v);
-  try {
-    const platform = assertPlatform(String(req.query?.platform ?? ''));
-    const rawRoute = String(req.query?.route ?? (req.body?.payload ? '/me' : ''));
-    const route = rawRoute.startsWith('/') ? rawRoute : '/' + rawRoute;
-    const allowedMethods = METHODS[route] ?? ['GET', 'POST'];
-    if (!allowedMethods.includes(req.method ?? 'GET')) {
-      res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED', code: 405 });
-      return;
-    }
-    const { credentials, traceId } = requireAuth(req);
-    const data = mockFor(platform, route, req.body?.payload);
-    if (isEmpty(credentials) && data === null) {
-      res.status(401).json({
-        ok: false,
-        error: '需要凭据（platform Cookie / OAuth access_token / apiKey 任一），当前为空。部署生产代理后可抓真实数据',
-        code: 'NO_CREDENTIALS',
+  (async () => {
+    try {
+      const platform = assertPlatform(String(req.query?.platform ?? ''));
+      const rawRoute = String(req.query?.route ?? (req.body?.payload ? '/me' : ''));
+      const route = rawRoute.startsWith('/') ? rawRoute : '/' + rawRoute;
+      const allowedMethods = METHODS[route] ?? ['GET', 'POST'];
+      if (!allowedMethods.includes(req.method ?? 'GET')) {
+        res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED', code: 405 });
+        return;
+      }
+      const { credentials, traceId } = requireAuth(req);
+      const hasCredentials = !isEmpty(credentials);
+      // 🔧 DEBUG 日志：后端实际收到的凭据状态
+      console.log(`[DEBUG][route.ts] platform=${platform}, route=${route}, method=${req.method}, credentialsKeys=${Object.keys(credentials || {})}, hasCredentials=${hasCredentials}, bodyCreds=${!!req.body?.credentials}`);
+
+      // ═══════════════════ ✅ 核心修复：有凭据时优先调用 runCrawler 抓取真实数据 ═══════════════════
+      if (hasCredentials) {
+        const ctx: CrawlContext = {
+          platform,
+          route,
+          credentials: credentials as CrawlContext['credentials'],
+          payload: req.body?.payload,
+        };
+        const crawl = await runCrawler(ctx);
+        // crawl.source = 'direct' → 真实接口成功（可信数据），'hybrid' → 部分真实+mock，'mock' → 真实接口失败降级mock
+        const sourceOut: 'direct' | 'hybrid' | 'mock' = crawl.source === 'direct'
+          ? 'direct'
+          : crawl.source === 'hybrid'
+          ? 'hybrid'
+          : 'mock';
+        if (crawl.ok && crawl.data !== null && crawl.data !== undefined) {
+          res.status(200).json({
+            ok: true,
+            data: crawl.data,
+            source: sourceOut,
+            traceId,
+            // ✅ 用标准 error/code 字段，和 B 站返回格式对齐，前端 fetchViaProxy 读 data.error 才能收到
+            ...(crawl.error ? { error: crawl.error } : {}),
+            ...(crawl.code ? { code: crawl.code } : {}),
+            ...(sourceOut !== 'direct' ? { _note: '真实接口未完全成功，已自动降级混合/示例数据' } : {}),
+          });
+          return;
+        }
+        // runCrawler 返回 ok=false 或无数据 → 继续走 mock fallback，但带上错误信息（用标准 error/code 字段）
+        const fallback = mockFor(platform, route, req.body?.payload);
+        if (fallback !== null) {
+          res.status(200).json({
+            ok: true,
+            data: fallback,
+            source: 'mock',
+            traceId,
+            error: crawl.error || '真实接口失败（凭据过期/接口风控），已降级示例数据',
+            code: crawl.code || 'CRAWLER_FAIL',
+            _note: '真实接口失败，已降级示例数据（检查凭据是否正确/过期）',
+          });
+          return;
+        }
+        res.status(401).json({
+          ok: false,
+          error: `真实接口失败：${crawl.error || '无数据'}，且当前 route 无示例 fallback`,
+          code: crawl.code || 'NO_FALLBACK',
+          traceId,
+        });
+        return;
+      }
+
+      // ═══════════════════ 无凭据 → 走 mock fallback，但明确标记 source='mock' + 警告 ═══════════════════
+      const data = mockFor(platform, route, req.body?.payload);
+      if (data === null) {
+        res.status(401).json({
+          ok: false,
+          error: '需要凭据（platform Cookie / OAuth access_token / apiKey 任一），当前为空。部署生产代理后可抓真实数据',
+          code: 'NO_CREDENTIALS',
+          traceId,
+        });
+        return;
+      }
+      res.status(200).json({
+        ok: true,
+        data,
+        source: 'mock',
         traceId,
+        _note: '当前未传凭据，返回的是示例静态数据（892450/467230 等假值），请在【系统管理】→【账号绑定】页绑定各平台 Cookie/Token 后才会抓取你真实账号。',
       });
-      return;
+    } catch (e) {
+      res.status(400).json({ ok: false, error: (e as Error).message, code: 'BAD_REQUEST' });
     }
-    res.status(200).json({ ok: true, data, source: 'mock', traceId });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: (e as Error).message, code: 'BAD_REQUEST' });
-  }
+  })();
 }
 
 export default vercel;
