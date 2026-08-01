@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/second-brain-workbench/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>第二大脑 · 自媒体本地工作台 | 晨枫暮叶</title>
+    <script>
+      /* ═══════════════════════════════════════════════════════
+       * HashRouter 冷启动兜底 & 相对路径 favicon 注入
+       * GitHub Pages 部署在子路径时：
+       *   1) 首屏没有 #/ 前缀 → 自动补 #/ 避免 404 页
+       *   2) 资源路径改成基于 base 的相对路径
+       * ═══════════════════════════════════════════════════════ */
+      (function () {
+        try {
+          if (typeof window !== 'undefined') {
+            // ① HashRouter 冷启动：如果 URL 没有 hash 或以 # 开头但不是 #/，补成 #/
+            var h = window.location.hash || '';
+            if (!h || (h.length === 1 && h === '#') || (h.charAt(0) === '#' && h.charAt(1) && h.charAt(1) !== '/')) {
+              var rest = (!h || h === '#') ? '' : h.substring(1);
+              var target = window.location.pathname + window.location.search + '#/' + (rest || '');
+              window.location.replace(target);
+            }
+
+            // ② favicon 相对路径注入（避免 /favicon.svg 在子路径下 404）
+            (function () {
+              var existing = document.querySelector('link[rel="icon"]');
+              if (existing) existing.parentNode.removeChild(existing);
+              var baseHref = (document.querySelector('base') || {}).href;
+              var prefix;
+              if (baseHref) {
+                prefix = baseHref.replace(/\/?$/, '');
+              } else {
+                // 从当前 pathname 推断 base（/second-brain-workbench/index.html → /second-brain-workbench）
+                var p = window.location.pathname;
+                if (/\/index\.html?$/.test(p)) p = p.replace(/\/index\.html?$/, '');
+                else p = p.replace(/\/[^\/]*$/, '');
+                prefix = p.replace(/\/?$/, '');
+              }
+              var link = document.createElement('link');
+              link.rel = 'icon';
+              link.type = 'image/svg+xml';
+              link.href = (prefix || '.') + '/favicon.svg';
+              document.head.appendChild(link);
+            })();
+          }
+        } catch (_) {}
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          var _wr = function (type) {
+            try {
+              if (typeof window === 'undefined' || typeof Node === 'undefined' || !Node.prototype) return;
+              var orig = Node.prototype[type];
+              if (!orig || orig.__wbPatched) return;
+              Node.prototype[type] = function (a, b) {
+                try {
+                  return orig.call(this, a, b);
+                } catch (err) {
+                  var e = err || {};
+                  var name = (e && e.name) || '';
+                  var msg = (e && e.message) || '';
+                  var isDom =
+                    name === 'NotFoundError' ||
+                    name === 'HierarchyRequestError' ||
+                    /removeChild|insertBefore|replaceChild|appendChild/i.test(msg);
+                  if (isDom) {
+                    try {
+                      if (typeof console !== 'undefined') {
+                        console.warn('[polyfill] 忽略 DOM ' + type + ' 异常:', msg);
+                      }
+                    } catch (_) {}
+                    if (type === 'removeChild') return a;
+                    if (type === 'insertBefore') {
+                      try {
+                        this.appendChild(a);
+                      } catch (_) {}
+                      return a;
+                    }
+                    if (type === 'replaceChild') return a;
+                    return a;
+                  }
+                  throw err;
+                }
+              };
+              Node.prototype[type].__wbPatched = true;
+            } catch (_) {}
+          };
+          _wr('removeChild');
+          _wr('insertBefore');
+          _wr('replaceChild');
+          _wr('appendChild');
+
+          try {
+            if (typeof window !== 'undefined' && typeof Element !== 'undefined' && Element.prototype && Element.prototype.remove && !Element.prototype.remove.__wbPatched) {
+              var origRemove = Element.prototype.remove;
+              Element.prototype.remove = function () {
+                try {
+                  return origRemove.call(this);
+                } catch (err) {
+                  try {
+                    if (typeof console !== 'undefined') {
+                      console.warn('[polyfill] 忽略 Element.remove 异常:', (err && err.message) || '');
+                    }
+                  } catch (_) {}
+                  return undefined;
+                }
+              };
+              Element.prototype.remove.__wbPatched = true;
+            }
+          } catch (_) {}
+
+          try {
+            if (typeof window !== 'undefined' && typeof CharacterData !== 'undefined' && CharacterData.prototype && CharacterData.prototype.remove && !CharacterData.prototype.remove.__wbPatched) {
+              var origCDataRemove = CharacterData.prototype.remove;
+              CharacterData.prototype.remove = function () {
+                try {
+                  return origCDataRemove.call(this);
+                } catch (err) {
+                  return undefined;
+                }
+              };
+              CharacterData.prototype.remove.__wbPatched = true;
+            }
+          } catch (_) {}
+        } catch (_) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/second-brain-workbench/assets/index-CByjyiSH.js"></script>
+    <link rel="modulepreload" crossorigin href="/second-brain-workbench/assets/rolldown-runtime-Bh1tDfsg.js">
+    <link rel="modulepreload" crossorigin href="/second-brain-workbench/assets/query-vendor-BE-RCq6t.js">
+    <link rel="modulepreload" crossorigin href="/second-brain-workbench/assets/react-D673XrU3.js">
+    <link rel="modulepreload" crossorigin href="/second-brain-workbench/assets/zustand-BRlIkLFI.js">
+    <link rel="stylesheet" crossorigin href="/second-brain-workbench/assets/index-C9hJrbK8.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
